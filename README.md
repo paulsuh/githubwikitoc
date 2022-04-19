@@ -1,29 +1,15 @@
-# README #
+# GitHub Wiki TOC #
 
-This README would normally document whatever steps are necessary to get your application up and running.
+This package will generate a table of contents for your GitHub Wiki, and
+optionally insert it into the Home.md file. It can also be set up to 
+auto-update the Home.md file when the wiki is edited. 
 
-### What is this repository for? ###
-
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+* Version: 0.1
+* License: BSD 3-clause
 
 ### How do I get set up? ###
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
-
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
-* Other community or team contact
+* Install the module from PyPi
+* Clone the GitHub Wiki from your project
+* Run the main module specifying the path to the wiki folder
+* Commit and push your wiki folder
