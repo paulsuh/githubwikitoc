@@ -26,29 +26,44 @@ def generate_toc() -> None:
 
     rename( "Home.md", "Home.md.old" )
     with open( "Home.md", "w" ) as new_home_md:
-        with fileinput.input("Home.md.old") as home_md:
+        with open( "Home.md.old", "r" ) as old_home_md:
 
             # Read and dump out text before the ToC
-            for one_line in home_md:
-
-                if one_line != "<!--start TOC-->\n":
-                    new_home_md.write(one_line)
+            while one_line := old_home_md.readline():
+                if one_line == "<!--start TOC-->\n":
+                    # We reached the top of the old TOC
+                    break
                 else:
+                    # We haven't reached the top of the old TOC yet so
+                    # transfer the old content to the new file.
+                    new_home_md.write(one_line)
+
+            if len(one_line) == 0:
+                # reached EOF without finding an existing TOC
+                # Put the TOC at the beginning of the file, then
+                # rewind and put the rest of the old home file's content
+                # after that.
+                # This is slightly inefficient, but good enough for this purpose
+                new_home_md.seek(0)
+                new_home_md.write(scan_files())
+                old_home_md.seek(0)
+                for existing_line in old_home_md:
+                    new_home_md.write(existing_line)
+                return
+
+            # We found the old TOC, so skip lines until the end of the old TOC
+            while one_line := old_home_md.readline():
+                if one_line == "<!--end TOC-->\n":
                     break
 
-            # write the new TOC
+            # Either we found the old TOC and skipped to the bottom of it
+            # or we never found the bottom marker and skipped all of the rest
+            # of the file.
+            # In either case write the new TOC
             new_home_md.write( scan_files() )
 
-            # Skip the old TOC
-            for one_line in home_md:
-
-                if one_line != "<!--end TOC-->":
-                    pass
-                else:
-                    break
-
             # Read and dump out text after the ToC
-            for one_line in home_md:
+            while one_line := old_home_md.readline():
                 new_home_md.write(one_line)
 
 
@@ -61,7 +76,7 @@ def scan_files() -> str:
     """
     result: str = "<!--start TOC-->\n\n# Table of Contents\n\n"
     tag_tree: dict = {
-        "untagged": []
+        "untagged": set()
     }
 
     # get the list of files
@@ -77,16 +92,16 @@ def scan_files() -> str:
         for one_line in f:
             fn = fileinput.filename()
             # assume the file is untagged
-            tag_tree["untagged"].append(fn)
+            tag_tree["untagged"].add(fn)
             if len(tags_list := _scan_line_for_tags( one_line )) > 0:
                 # tag found, remove the file from the list of completely untagged files
                 # and add it to one of the tag entries
-                tag_tree["untagged"].remove(fn)
+                tag_tree["untagged"].discard(fn)
                 for one_tag in tags_list:
                     _add_filename_to_tag_dict( fn, one_tag, tag_tree )
                 fileinput.nextfile()
 
-    result += _render_tag_tree(tag_tree) + "<!--end TOC-->\n\n"
+    result += _render_tag_tree(tag_tree) + "<!--end TOC-->\n"
 
     return result
 
@@ -132,7 +147,7 @@ def _add_filename_to_tag_dict( filename: str, tag_seq: str, tag_dict: dict ) -> 
     current_dict = tag_dict
     for current_level in tag_seq.split("-"):
         current_dict = current_dict.setdefault( current_level, dict() )
-    current_dict.setdefault( "untagged", list() ).append(filename)
+    current_dict.setdefault( "untagged", set() ).add(filename)
 
 
 def _render_tag_tree( tag_tree: dict, level: int = 2 ) -> str:
@@ -145,12 +160,13 @@ def _render_tag_tree( tag_tree: dict, level: int = 2 ) -> str:
     """
     result = ""
 
-    for one_filename in sorted(tag_tree["untagged"]):
-        # change dashes to spaces, and strip off the extension
-        # Use MediaWiki link format because standard Markdown linking is mostly broken
+    for one_filename in sorted(list(tag_tree["untagged"])):
+        # strip off the extension then change dashes to spaces
+        # Prefix link with 'wiki/' so that it works right
         # This is a GitHub bug
-        munged_filename = splitext(one_filename)[0].translate(dash_to_space)
-        result += f"[[{munged_filename}|{munged_filename}]]\n\n"
+        stripped_filename = splitext(one_filename)[0]
+        munged_filename = stripped_filename.translate(dash_to_space)
+        result += f"[{munged_filename}](wiki/{stripped_filename})\n\n"
 
     sub_tags = sorted(tag_tree.keys())
     sub_tags.remove("untagged")
